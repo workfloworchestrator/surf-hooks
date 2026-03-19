@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "surf-python-style",
-      "aliases": ["saving-seals"],
+      "aliases": ["save-the-baby-seals"],
       "source": "./plugins/surf-python-style",
       "description": "Python style enforcer: nudges Claude toward itertools, comprehensions, and match/case",
       "version": "1.0.0",
