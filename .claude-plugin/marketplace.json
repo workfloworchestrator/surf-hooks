@@ -1,1 +1,19 @@
-{"name":"surf-python-style","version":"1.0.0"}
+{
+  "name": "surf-hooks",
+  "owner": {
+    "name": "workfloworchestrator"
+  },
+  "metadata": {
+    "description": "SURF Claude Code hooks and plugins"
+  },
+  "plugins": [
+    {
+      "name": "surf-python-style",
+      "aliases": ["saving-seals"],
+      "source": "./plugins/surf-python-style",
+      "description": "Python style enforcer: nudges Claude toward itertools, comprehensions, and match/case",
+      "version": "1.0.0",
+      "license": "MIT"
+    }
+  ]
+}
