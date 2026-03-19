@@ -1,4 +1,4 @@
- # surf-hooks
+ # SURF-Hooks a.k.a Save the Baby Seals
 
 Claude Code hooks and plugins maintained by [workfloworchestrator](https://github.com/workfloworchestrator).
 Also known internally as **save-the-baby-seals** 🦭.
