@@ -44,10 +44,6 @@ Install the plugin
 
 /plugin install surf-python-style@surf-hooks
 
-Or using the alias:
-
-/plugin install save-the-baby-seals@surf-hooks
-
 ---
 Local development
 

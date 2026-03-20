@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "description": "Enforces SURF Python style via AST-based hooks",
   "author": { "name": "SURF Network Automation" },
-  "aliases": ["save-the-baby-seals"],
   "license": "MIT",
   "hooks": "./hooks/hooks.json"
 }
