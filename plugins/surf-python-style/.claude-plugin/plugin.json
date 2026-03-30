@@ -3,6 +3,5 @@
   "version": "1.0.0",
   "description": "Enforces SURF Python style via AST-based hooks",
   "author": { "name": "SURF Network Automation" },
-  "license": "MIT",
-  "hooks": "./hooks/hooks.json"
+  "license": "MIT"
 }
