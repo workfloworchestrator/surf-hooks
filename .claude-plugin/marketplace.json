@@ -11,14 +11,14 @@
       "name": "surf-python-style",
       "source": "./plugins/surf-python-style",
       "description": "Python style enforcer: nudges Claude toward itertools, comprehensions, and match/case",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "license": "MIT"
     },
     {
       "name": "orchestrator-skills",
       "source": "./plugins/orchestrator-skills",
       "description": "Skills for developing with orchestrator-core: CLI scaffolding, workflow creation, domain models, and product lifecycle",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "license": "Apache-2.0"
     }
   ]
