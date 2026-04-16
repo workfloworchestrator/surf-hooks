@@ -1,0 +1,7 @@
+{
+  "name": "orchestrator-skills",
+  "version": "1.0.0",
+  "description": "Skills for developing with orchestrator-core: CLI tooling, workflow creation, domain models, and product lifecycle management",
+  "author": { "name": "SURF Network Automation" },
+  "license": "Apache-2.0"
+}
