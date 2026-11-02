@@ -15,6 +15,7 @@ Configuration (environment):
   SURF_SHUNT_BASE_URL           proxy URL  } set both, or neither to reuse Claude Code's
   SURF_SHUNT_API_KEY            proxy key  } ANTHROPIC_BASE_URL + ANTHROPIC_AUTH_TOKEN pair
   SURF_SHUNT_TIMEOUT            seconds per call (default: 300)
+  SURF_SHUNT_THINKING           on | off: the chat-template enable_thinking flag (default: off)
   SURF_SHUNT_MAX_INPUT_TOKENS   refuse requests estimated above this
                                 (default: 3/4 of the model's window in MODEL_CONTEXT_TOKENS)
 """
@@ -64,6 +65,13 @@ CODE_WRITER_PROMPT = (
     "that match the patterns in the reference code."
 )
 
+# Qwen3-style models reason before answering by default, and on large inputs that can outlast
+# SURF_SHUNT_TIMEOUT (Qwen3.8-27B-FP8 timed out at 60-120s on 1.5k-13k token reads with thinking
+# on, and answered in 4-56s with it off). Hence off by default. The flag is sent to every model:
+# the proxy accepted it for gpt-oss-120b too, but no speed-up was measured there.
+THINKING_VALUES = {"on": True, "off": False}
+DEFAULT_THINKING = "off"
+
 FENCED = re.compile(r"\A```[^\n]*\n(?P<body>.*?)\n?```\Z", re.DOTALL)
 # Reasoning models served without a reasoning parser leak their thoughts inline
 THINK_BLOCK = re.compile(r"<think>.*?</think>\s*", re.DOTALL)
@@ -80,6 +88,14 @@ class Settings:
     model: str
     timeout: int
     max_input_tokens: int
+    thinking: bool = THINKING_VALUES[DEFAULT_THINKING]
+
+
+def _env_thinking() -> bool:
+    raw = os.environ.get("SURF_SHUNT_THINKING", "").strip().lower() or DEFAULT_THINKING
+    if raw not in THINKING_VALUES:
+        raise ShuntError(f"SURF_SHUNT_THINKING must be one of {sorted(THINKING_VALUES)}, got {raw!r}")
+    return THINKING_VALUES[raw]
 
 
 def _env_int(name: str, default: int) -> int:
@@ -123,6 +139,7 @@ def load_settings(role: str) -> Settings:
         model=model,
         timeout=_env_int("SURF_SHUNT_TIMEOUT", DEFAULT_TIMEOUT),
         max_input_tokens=_env_int("SURF_SHUNT_MAX_INPUT_TOKENS", default_max_input_tokens(model)),
+        thinking=_env_thinking(),
     )
 
 
@@ -163,6 +180,7 @@ def chat(settings: Settings, system: str, user: str) -> str:
         "temperature": 0.2,
         # Never let the proxy reroute to another (possibly cloud-hosted) model
         "disable_fallbacks": True,
+        "chat_template_kwargs": {"enable_thinking": settings.thinking},
     }
     request = urllib.request.Request(
         f"{settings.base_url.rstrip('/')}/v1/chat/completions",

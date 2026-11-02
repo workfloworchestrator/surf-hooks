@@ -1,3 +1,4 @@
+import dataclasses
 import io
 import json
 import sys
@@ -60,7 +61,7 @@ def test_strip_fences(raw: str, expected: str):
 
 ENV_NAMES = [
     "SURF_SHUNT_MODEL", "SURF_SHUNT_READ_MODEL", "SURF_SHUNT_WRITE_MODEL", "SURF_SHUNT_BASE_URL",
-    "SURF_SHUNT_API_KEY", "ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY",
+    "SURF_SHUNT_API_KEY", "SURF_SHUNT_THINKING", "ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY",
 ]
 
 
@@ -111,6 +112,41 @@ def test_load_settings_model(clean_env, env, role, expected_model):
 def test_load_settings_max_input_tokens(clean_env, env, role, expected_limit):
     clean_env({**PROXY, **env})
     assert shunt.load_settings(role).max_input_tokens == expected_limit
+
+
+@pytest.mark.parametrize(
+    ("env", "expected"),
+    [
+        pytest.param({}, False, id="unset-defaults-to-off"),
+        pytest.param({"SURF_SHUNT_THINKING": "off"}, False, id="off"),
+        pytest.param({"SURF_SHUNT_THINKING": "on"}, True, id="on"),
+        pytest.param({"SURF_SHUNT_THINKING": " ON "}, True, id="case-and-whitespace-insensitive"),
+        pytest.param({"SURF_SHUNT_THINKING": ""}, False, id="empty-is-unset"),
+    ],
+)
+def test_load_settings_thinking(clean_env, env, expected):
+    clean_env({**PROXY, **env})
+    assert shunt.load_settings("READ").thinking is expected
+
+
+@pytest.mark.parametrize("value", [pytest.param("false", id="false"), pytest.param("0", id="zero"), pytest.param("of", id="typo")])
+def test_load_settings_rejects_unknown_thinking_value(clean_env, value):
+    clean_env({**PROXY, "SURF_SHUNT_THINKING": value})
+    with pytest.raises(shunt.ShuntError, match="SURF_SHUNT_THINKING"):
+        shunt.load_settings("READ")
+
+
+@pytest.mark.parametrize("thinking", [pytest.param(False, id="off"), pytest.param(True, id="on")])
+def test_chat_sends_thinking_flag(fake_proxy, thinking):
+    calls = fake_proxy(FakeResponse(answer("- ok")))
+    shunt.chat(dataclasses.replace(SETTINGS, thinking=thinking), "system", "user")
+    assert calls[0]["chat_template_kwargs"] == {"enable_thinking": thinking}
+
+
+def test_chat_disables_thinking_by_default(fake_proxy):
+    calls = fake_proxy(FakeResponse(answer("- ok")))
+    shunt.chat(SETTINGS, "system", "user")
+    assert calls[0]["chat_template_kwargs"] == {"enable_thinking": False}
 
 
 @pytest.mark.parametrize(

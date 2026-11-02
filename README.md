@@ -129,6 +129,7 @@ through the proxy). A URL and key are never mixed across sources.
 | `SURF_SHUNT_MIN_LINES` | `350` | Hook threshold |
 | `SURF_SHUNT_DISABLE` | — | `1` turns the hook off (e.g. while the model is down) |
 | `SURF_SHUNT_TIMEOUT` | `300` | Seconds per call |
+| `SURF_SHUNT_THINKING` | `off` | `on` or `off`: the `chat_template_kwargs.enable_thinking` flag sent with each request. Anything else is an error. See below |
 | `SURF_SHUNT_MAX_INPUT_TOKENS` | ¾ of the model's window | Refuse larger requests (see below) |
 
 #### Per-model limits
@@ -148,6 +149,22 @@ not publish them):
 
 Only three quarters of the window goes to input; the answer shares the window.
 `SURF_SHUNT_MAX_INPUT_TOKENS` overrides the limit for every model.
+
+#### Thinking
+
+Every request sends `chat_template_kwargs: {"enable_thinking": false}`, which
+Qwen3-style models honour. Set `SURF_SHUNT_THINKING=on` to let the model reason.
+Measured against the SURF proxy on 2026-11-02, a ~3k-token read on
+`Qwen3.8-27B-FP8` with thinking on finished within 60 s in one of three tries and
+timed out in the other two. With it off, ~3k, ~7k and ~13k-token reads took roughly
+8 s, 11 s and 55 s.
+
+For `gpt-oss-120b` the proxy accepts the parameter, but the runs did not show a
+speed-up, so the default only helps Qwen. A model whose backend rejects unknown
+parameters would fail every call; set `SURF_SHUNT_THINKING=on` for it to send
+`enable_thinking: true` instead. The proxy also appears to cache answers by prompt
+without regard for this flag, so a repeated read can return the answer produced
+under the other setting. Change the question when benchmarking.
 
 Request size is estimated the way the tokenizer splits text (words, single digits,
 punctuation runs), calibrated against `Qwen3.8-27B-FP8`: within about 5% for Python,
