@@ -4,7 +4,7 @@ description: "Delegate bulk file reading to the on-prem model (Qwen3.8-27B-FP8 b
 ---
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/shunt.py bulk-read --question "<question>" --paths <file1> [<file2> ...]
+${CLAUDE_PLUGIN_ROOT}/scripts/run-python ${CLAUDE_PLUGIN_ROOT}/scripts/shunt.py bulk-read --question "<question>" --paths <file1> [<file2> ...]
 ```
 
 The files go to the on-prem model, never into your context — only the answer comes back.

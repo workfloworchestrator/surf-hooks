@@ -35,7 +35,8 @@ OUTPUT_OPERATORS = STDOUT_REDIRECTS | {">&"}
 INPUT_OPERATORS = frozenset({"<", "<<", "<<<"})
 # Read renders these natively; their newline count says nothing about context cost
 NON_TEXT_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".gif", ".webp", ".pdf", ".ipynb"})
-SHUNT_SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "shunt.py"
+SCRIPTS_DIR = Path(__file__).resolve().parents[2] / "scripts"
+SHUNT_COMMAND = shlex.join([str(SCRIPTS_DIR / "run-python"), str(SCRIPTS_DIR / "shunt.py")])
 
 
 def min_lines() -> int:
@@ -110,7 +111,7 @@ def block_message(oversized: list[tuple[str, int]], threshold: int) -> str:
     return (
         f"BLOCKED: {listing} exceeds the {threshold}-line threshold. "
         "Delegate the read to the on-prem model with the surf-shunt bulk-reader skill:\n"
-        f'  python3 {SHUNT_SCRIPT} bulk-read --question "<your question>" --paths {paths}\n'
+        f'  {SHUNT_COMMAND} bulk-read --question "<your question>" --paths {paths}\n'
         "If you need exact content for an edit, use Read with offset/limit for just that section."
     )
 

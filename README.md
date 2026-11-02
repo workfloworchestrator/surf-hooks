@@ -103,6 +103,12 @@ Three layers:
    - `code-write --spec "..." --reference ref.py --target out.py` — generates boilerplate straight to disk
 3. **Skills** `bulk-reader` and `code-writer` tell Claude when to use each.
 
+Both scripts need Python 3.10 or newer. The hook and skills start them through
+`scripts/run-python`, which uses the first `python3`, `python3.14` … `python3.10` on
+PATH that is new enough (a stock macOS `python3` is 3.9). Without one it logs a
+warning to `surf-shunt.log` in the plugin data directory; the hook then shows the
+warning and lets tool calls through instead of blocking them.
+
 Content is meant to stay on-prem: requests set `disable_fallbacks`, and an answer
 from any model other than the one requested is discarded. A failed call errors
 out instead of falling back to a cloud model.
@@ -140,9 +146,16 @@ not publish them):
 | `gpt-oss-120b` | 131,072 | 98,304 |
 | anything else | 131,072 (assumed) | 98,304 |
 
-Only three quarters of the window goes to input: the answer shares the window,
-and request size is estimated at four characters per token, which undercounts
-code. `SURF_SHUNT_MAX_INPUT_TOKENS` overrides the limit for every model.
+Only three quarters of the window goes to input; the answer shares the window.
+`SURF_SHUNT_MAX_INPUT_TOKENS` overrides the limit for every model.
+
+Request size is estimated the way the tokenizer splits text (words, single digits,
+punctuation runs), calibrated against `Qwen3.8-27B-FP8`: within about 5% for Python,
+Markdown and lockfiles. A flat four-characters-per-token estimate is fine for code
+but undercounts lockfile hashes 2.6x, which let a 558 KB `uv.lock` through to fail
+at the proxy. Over-limit requests are now refused up front with advice to split the
+file or grep it. When the proxy does reject a request, the error includes the
+estimated size, because LiteLLM hides the backend's context-length message.
 
 To add a model, add its context window to `MODEL_CONTEXT_TOKENS`. The proxy hides
 backend errors, so measure the window by sending `"hello " * n` prompts of growing

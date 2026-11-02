@@ -1,0 +1,38 @@
+#!/bin/sh
+# Run a surf-shunt script with the first Python >= 3.10 on PATH.
+#
+#   run-python [--fail-open] script.py [args...]
+#
+# When no suitable Python is found, a warning goes to stderr and to
+# surf-shunt.log in the plugin data directory. With --fail-open (used by the
+# hook) it also shows the warning to the user and exits 0, so a missing Python
+# never blocks a tool call; otherwise it exits 1.
+
+fail_open=0
+if [ "$1" = "--fail-open" ]; then
+  fail_open=1
+  shift
+fi
+
+for candidate in python3 python3.14 python3.13 python3.12 python3.11 python3.10; do
+  if command -v "$candidate" >/dev/null 2>&1 \
+    && "$candidate" -c 'import sys; sys.exit(sys.version_info < (3, 10))' 2>/dev/null; then
+    exec "$candidate" "$@"
+  fi
+done
+
+# stdout only: an error text would break the systemMessage JSON below
+found=$(python3 --version 2>/dev/null)
+message="surf-shunt: needs Python >= 3.10, but PATH only has ${found:-no python3}. Install a newer Python (e.g. brew install python@3.12)."
+[ "$fail_open" = 1 ] && message="$message The large-read hook is inactive until then."
+
+log_dir="${CLAUDE_PLUGIN_DATA:-$HOME/.claude}"
+mkdir -p "$log_dir" 2>/dev/null \
+  && printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$message" >> "$log_dir/surf-shunt.log" 2>/dev/null
+echo "$message" >&2
+
+if [ "$fail_open" = 1 ]; then
+  printf '{"systemMessage": "%s"}\n' "$message"
+  exit 0
+fi
+exit 1

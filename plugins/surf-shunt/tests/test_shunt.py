@@ -187,7 +187,41 @@ def test_chat_strips_think_blocks(fake_proxy):
 def test_chat_refuses_oversized_request(fake_proxy):
     calls = fake_proxy(FakeResponse(answer("x")))
     with pytest.raises(shunt.ShuntError, match="over the 1000 limit"):
-        shunt.chat(SETTINGS, "system", "x" * 5000)
+        shunt.chat(SETTINGS, "system", "1" * 5000)
+    assert calls == []
+
+
+@pytest.mark.parametrize(
+    ("text", "low", "high"),
+    [
+        pytest.param("hello world", 2, 2, id="words-with-leading-space"),
+        pytest.param("2026", 4, 4, id="digits-one-each"),
+        pytest.param("def handler(event):\n    return None\n", 8, 14, id="python"),
+        pytest.param("sha256:" + "a3f9" * 16, 30, 70, id="hash-is-expensive"),
+        pytest.param("", 0, 0, id="empty"),
+    ],
+)
+def test_estimate_tokens(text: str, low: int, high: int):
+    assert low <= shunt.estimate_tokens(text) <= high
+
+
+def test_estimate_counts_hashes_far_above_chars_over_four():
+    lockfile_line = 'hash = "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"\n' * 100
+    assert shunt.estimate_tokens(lockfile_line) > 1.8 * len(lockfile_line) / 4
+
+
+def test_chat_http_error_reports_request_size(fake_proxy):
+    error = urllib.error.HTTPError("u", 422, "err", Message(), io.BytesIO(b'{"error": {"message": "Error in response object"}}'))
+    calls = fake_proxy(None, error)
+    with pytest.raises(shunt.ShuntError, match=r"HTTP 422: Error in response object \[request ~\d+ tokens"):
+        shunt.chat(SETTINGS, "system", "user")
+    assert len(calls) == 1
+
+
+def test_oversized_message_suggests_splitting(fake_proxy):
+    calls = fake_proxy(FakeResponse(answer("x")))
+    with pytest.raises(shunt.ShuntError, match="split -l 1500"):
+        shunt.chat(SETTINGS, "system", "1" * 5000)
     assert calls == []
 
 

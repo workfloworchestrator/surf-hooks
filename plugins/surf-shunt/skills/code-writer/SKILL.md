@@ -5,10 +5,10 @@ description: "Delegate boilerplate code generation to the on-prem model (Qwen3.8
 
 ```bash
 # Generate and write directly to the target file
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/shunt.py code-write --spec "<what to generate>" --reference <ref-file> [<ref-file> ...] --target <output-path>
+${CLAUDE_PLUGIN_ROOT}/scripts/run-python ${CLAUDE_PLUGIN_ROOT}/scripts/shunt.py code-write --spec "<what to generate>" --reference <ref-file> [<ref-file> ...] --target <output-path>
 
 # Print to stdout instead (omit --target)
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/shunt.py code-write --spec "<what to generate>" --reference <ref-file>
+${CLAUDE_PLUGIN_ROOT}/scripts/run-python ${CLAUDE_PLUGIN_ROOT}/scripts/shunt.py code-write --spec "<what to generate>" --reference <ref-file>
 ```
 
 - `--reference` is required: pass the file(s) whose patterns the output must follow, plus the code under test when generating tests.

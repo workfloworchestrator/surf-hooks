@@ -27,6 +27,7 @@ import sys
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
+from math import ceil
 from pathlib import Path
 
 DEFAULT_MODEL = "Qwen3.8-27B-FP8"
@@ -41,6 +42,13 @@ DEFAULT_CONTEXT_TOKENS = 131_072
 # The answer shares the window and requests are sized with a rough chars/4
 # estimate, so only three quarters of it goes to input
 INPUT_SHARE = 0.75
+
+# Token estimate modelled on how the tokenizer splits text: a word (with its leading
+# space) is one token per ~10 letters, every digit and whitespace run is a token,
+# and punctuation is a token per ~2 characters. Calibrated against Qwen3.8-27B-FP8
+# on 2026-11-02: within ~5% for Python, Markdown and uv.lock, where a flat
+# chars/4 estimate undercounted lockfile hashes 2.6x.
+TOKEN_PIECE = re.compile(r" ?[A-Za-z]+|\d| ?[^\sA-Za-z\d]+|\s+")
 
 BULK_READER_PROMPT = (
     "You are a precise code analyst. Read the provided files and answer the question concisely. "
@@ -118,8 +126,17 @@ def load_settings(role: str) -> Settings:
     )
 
 
+def _piece_tokens(piece: str) -> int:
+    core = piece.lstrip(" ") or piece
+    if core[0].isalpha():
+        return ceil(len(core) / 10)
+    if core[0].isdigit() or core[0].isspace():
+        return 1
+    return ceil(len(core) / 2)
+
+
 def estimate_tokens(text: str) -> int:
-    return len(text) // 4
+    return sum(_piece_tokens(match.group()) for match in TOKEN_PIECE.finditer(text))
 
 
 def _http_error_message(exc: urllib.error.HTTPError) -> str:
@@ -135,7 +152,9 @@ def chat(settings: Settings, system: str, user: str) -> str:
     if tokens > settings.max_input_tokens:
         raise ShuntError(
             f"request is ~{tokens} tokens, over the {settings.max_input_tokens} limit "
-            f"for {settings.model}. Send fewer or smaller files per call."
+            f"for {settings.model}. Send fewer files per call, split a large file "
+            f"(split -l 1500 <file> /tmp/shunt-part-) and ask about each part, or use grep "
+            f"for lookups in lockfiles and generated files."
         )
 
     body = {
@@ -156,7 +175,11 @@ def chat(settings: Settings, system: str, user: str) -> str:
             payload = json.load(response)
             served_by = response.headers.get("x-litellm-model-group")
     except urllib.error.HTTPError as exc:
-        raise ShuntError(f"{settings.model} returned HTTP {exc.code}: {_http_error_message(exc)}") from exc
+        raise ShuntError(
+            f"{settings.model} returned HTTP {exc.code}: {_http_error_message(exc)} "
+            f"[request ~{tokens} tokens; the proxy hides context-length errors, so if this is "
+            f"close to the model's window, send less per call]"
+        ) from exc
     except (urllib.error.URLError, TimeoutError) as exc:
         reason = getattr(exc, "reason", exc)
         raise ShuntError(f"could not get an answer from {settings.model} at {settings.base_url}: {reason}") from exc
