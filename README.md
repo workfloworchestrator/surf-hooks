@@ -124,17 +124,28 @@ through the proxy). A URL and key are never mixed across sources.
 | `SURF_SHUNT_TIMEOUT` | `300` | Seconds per call |
 | `SURF_SHUNT_MAX_INPUT_TOKENS` | ¾ of the model's window | Refuse larger requests (see below) |
 
-The input limit follows the selected model, from the context windows in
-`MODEL_CONTEXT_TOKENS` in `scripts/shunt.py` (measured against the proxy):
+#### Per-model limits
+
+The input limit is set automatically from the model each call uses, so with
+`SURF_SHUNT_READ_MODEL` and `SURF_SHUNT_WRITE_MODEL` pointing at different models,
+reads and writes each get their own limit. Requests over the limit are refused
+before anything is sent. The context windows live in `MODEL_CONTEXT_TOKENS` in
+`scripts/shunt.py`, measured against the SURF proxy on 2026-11-02 (the proxy does
+not publish them):
 
 | Model | Context window | Default input limit |
 |-------|----------------|---------------------|
-| `Qwen3.8-27B-FP8` | 262,144 | 196,608 |
+| `Qwen3.8-27B-FP8` (default) | 262,144 | 196,608 |
 | `gpt-oss-120b` | 131,072 | 98,304 |
 | anything else | 131,072 (assumed) | 98,304 |
 
-Three quarters of the window goes to input: the answer shares the window, and
-request size is estimated at four characters per token, which undercounts code.
+Only three quarters of the window goes to input: the answer shares the window,
+and request size is estimated at four characters per token, which undercounts
+code. `SURF_SHUNT_MAX_INPUT_TOKENS` overrides the limit for every model.
+
+To add a model, add its context window to `MODEL_CONTEXT_TOKENS`. The proxy hides
+backend errors, so measure the window by sending `"hello " * n` prompts of growing
+`n` with `max_tokens: 1` and finding where requests start to fail.
 
 Run its tests with `python3 -m pytest plugins/surf-shunt`.
 
