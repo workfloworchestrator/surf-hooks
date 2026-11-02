@@ -96,7 +96,8 @@ Three layers:
 1. **Hook** (`PreToolUse` on `Read|Bash`) blocks full reads of files over 350 lines
    (`Read` without offset/limit, `cat`/`less`/`more`/`bat`) and tells Claude the exact
    `bulk-read` command to run instead. Targeted reads (offset/limit, `head`, `tail`,
-   `sed -n`, piped or redirected output) pass through.
+   `sed -n`, output piped or redirected to a file) pass through. Each segment of a
+   compound command is checked on its own, so `cat big.py; git diff | head` still blocks.
 2. **Script** `scripts/shunt.py` (stdlib only) sends the files to the model and prints only the answer:
    - `bulk-read --question "..." --paths a.py b.py` — the files never enter Claude's context
    - `code-write --spec "..." --reference ref.py --target out.py` — generates boilerplate straight to disk

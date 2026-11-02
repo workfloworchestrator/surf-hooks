@@ -8,8 +8,9 @@ the bulk-reader skill, which hands the files to an on-prem model instead:
   - Read without offset/limit on a file over the line threshold
   - Bash `cat` / `less` / `more` / `bat` on a file over the line threshold
 
-Targeted reads pass through: Read with offset/limit, head/tail, sed -n, and any
-command whose output is piped or redirected.
+Targeted reads pass through: Read with offset/limit, head/tail, sed -n, and reads
+whose stdout is piped or redirected to a file. Each segment of a compound command
+(`;`, `&&`, `||`, `&`, `|`) is judged on its own.
 
 Configuration (environment):
   SURF_SHUNT_MIN_LINES   line threshold (default: 350)
@@ -22,13 +23,16 @@ import json
 import os
 import shlex
 import sys
-from itertools import chain, groupby
+from itertools import chain, groupby, pairwise, takewhile
 from pathlib import Path
 
 DEFAULT_MIN_LINES = 350
 READ_COMMANDS = frozenset({"cat", "less", "more", "bat"})
-SEGMENT_SEPARATORS = frozenset({";", "&&", "||", "&"})
-PIPES_AND_REDIRECTS = frozenset({"|", "|&", ">", ">>", ">&", "&>", ">|"})
+PIPES = frozenset({"|", "|&"})
+SEGMENT_SEPARATORS = frozenset({";", "&&", "||", "&"}) | PIPES
+STDOUT_REDIRECTS = frozenset({">", ">>", ">|", "&>", "&>>"})
+OUTPUT_OPERATORS = STDOUT_REDIRECTS | {">&"}
+INPUT_OPERATORS = frozenset({"<", "<<", "<<<"})
 # Read renders these natively; their newline count says nothing about context cost
 NON_TEXT_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".gif", ".webp", ".pdf", ".ipynb"})
 SHUNT_SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "shunt.py"
@@ -67,21 +71,37 @@ def _tokenize(command: str) -> list[str]:
 def _segment_file_args(segment: list[str]) -> list[str]:
     match segment:
         case [command, *args] if Path(command).name in READ_COMMANDS:
-            return [arg for arg in args if not arg.startswith("-")]
+            operands = takewhile(lambda arg: arg not in OUTPUT_OPERATORS, args)
+            return [arg for arg in operands if not arg.startswith("-") and arg not in INPUT_OPERATORS]
         case _:
             return []
 
 
-def bash_targets(command: str) -> list[str]:
-    tokens = _tokenize(command)
-    if PIPES_AND_REDIRECTS.intersection(tokens):
-        return []
-    segments = [
-        list(group)
-        for is_separator, group in groupby(tokens, key=lambda token: token in SEGMENT_SEPARATORS)
-        if not is_separator
+def _hides_stdout(segment: list[str]) -> bool:
+    """True when the segment sends stdout to a file; `2>/dev/null` only moves stderr."""
+    return any(
+        token in STDOUT_REDIRECTS and (not previous.isdigit() or previous == "1")
+        for previous, token in pairwise(segment)
+    )
+
+
+def _segments(tokens: list[str]) -> list[tuple[list[str], str]]:
+    """Split into command segments, each paired with the operator that ends it ("" for the last)."""
+    groups = [(is_operator, list(group)) for is_operator, group in groupby(tokens, key=SEGMENT_SEPARATORS.__contains__)]
+    return [
+        (words, following[0])
+        for (is_operator, words), (_, following) in pairwise([*groups, (True, [""])])
+        if not is_operator
     ]
-    return list(chain.from_iterable(_segment_file_args(segment) for segment in segments))
+
+
+def bash_targets(command: str) -> list[str]:
+    reads_into_context = [
+        segment
+        for segment, ended_by in _segments(_tokenize(command))
+        if ended_by not in PIPES and not _hides_stdout(segment)
+    ]
+    return list(chain.from_iterable(_segment_file_args(segment) for segment in reads_into_context))
 
 
 def block_message(oversized: list[tuple[str, int]], threshold: int) -> str:
