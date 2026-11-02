@@ -9,7 +9,7 @@ Every call is one-shot: the files go to the worker model, only its answer comes
 back. The answer goes to stdout, a one-line usage note to stderr.
 
 Configuration (environment):
-  SURF_SHUNT_MODEL              model for both roles (default: Qwen3.8-27B-FP8)
+  SURF_SHUNT_MODEL              model for both roles (default: gpt-oss-120b)
   SURF_SHUNT_READ_MODEL         override for bulk-read
   SURF_SHUNT_WRITE_MODEL        override for code-write
   SURF_SHUNT_BASE_URL           proxy URL  } set both, or neither to reuse Claude Code's
@@ -30,7 +30,7 @@ from dataclasses import dataclass
 from math import ceil
 from pathlib import Path
 
-DEFAULT_MODEL = "Qwen3.8-27B-FP8"
+DEFAULT_MODEL = "gpt-oss-120b"
 DEFAULT_TIMEOUT = 300
 
 # Context windows (prompt + answer), measured against the SURF proxy on 2026-11-02

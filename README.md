@@ -87,7 +87,7 @@ Key topics covered:
 ### `surf-shunt`
 
 Saves Claude tokens by shunting I/O-heavy work to an on-prem model (default
-`Qwen3.8-27B-FP8`) behind an OpenAI-compatible LiteLLM proxy. There is no built-in
+`gpt-oss-120b`) behind an OpenAI-compatible LiteLLM proxy. There is no built-in
 proxy URL: point it at your own via the variables below.
 Modelled on Spotify's `shunt` plugin, which does the same via AiKA.
 
@@ -122,7 +122,7 @@ through the proxy). A URL and key are never mixed across sources.
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `SURF_SHUNT_MODEL` | `Qwen3.8-27B-FP8` | Worker model for both roles |
+| `SURF_SHUNT_MODEL` | `gpt-oss-120b` | Worker model for both roles |
 | `SURF_SHUNT_READ_MODEL` / `SURF_SHUNT_WRITE_MODEL` | — | Per-role override |
 | `SURF_SHUNT_BASE_URL` | `$ANTHROPIC_BASE_URL` | LiteLLM proxy URL |
 | `SURF_SHUNT_API_KEY` | `$ANTHROPIC_AUTH_TOKEN` | LiteLLM key |
@@ -142,8 +142,8 @@ not publish them):
 
 | Model | Context window | Default input limit |
 |-------|----------------|---------------------|
-| `Qwen3.8-27B-FP8` (default) | 262,144 | 196,608 |
-| `gpt-oss-120b` | 131,072 | 98,304 |
+| `gpt-oss-120b` (default) | 131,072 | 98,304 |
+| `Qwen3.8-27B-FP8` | 262,144 | 196,608 |
 | anything else | 131,072 (assumed) | 98,304 |
 
 Only three quarters of the window goes to input; the answer shares the window.
