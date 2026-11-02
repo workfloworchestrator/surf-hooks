@@ -58,36 +58,72 @@ def test_strip_fences(raw: str, expected: str):
     assert shunt.strip_fences(raw) == expected
 
 
+ENV_NAMES = [
+    "SURF_SHUNT_MODEL", "SURF_SHUNT_READ_MODEL", "SURF_SHUNT_WRITE_MODEL", "SURF_SHUNT_BASE_URL",
+    "SURF_SHUNT_API_KEY", "ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY",
+]
+
+
+@pytest.fixture
+def clean_env(monkeypatch):
+    for name in ENV_NAMES:
+        monkeypatch.delenv(name, raising=False)
+
+    def apply(env: dict):
+        for name, value in env.items():
+            monkeypatch.setenv(name, value)
+
+    return apply
+
+
+PROXY = {"ANTHROPIC_BASE_URL": "https://proxy", "ANTHROPIC_AUTH_TOKEN": "token"}
+
+
 @pytest.mark.parametrize(
-    ("env", "role", "expected_model", "expected_base"),
+    ("env", "role", "expected_model"),
     [
-        pytest.param({}, "READ", "gpt-oss-120b", "https://llms.automation.surf.net", id="defaults"),
-        pytest.param({"SURF_SHUNT_MODEL": "DeepSeek-V4.1-Flash"}, "WRITE", "DeepSeek-V4.1-Flash", None, id="shared"),
-        pytest.param(
-            {"SURF_SHUNT_MODEL": "a", "SURF_SHUNT_READ_MODEL": "b"}, "READ", "b", None, id="role-override"
-        ),
-        pytest.param({"ANTHROPIC_BASE_URL": "https://other"}, "READ", None, "https://other", id="anthropic-base"),
+        pytest.param({}, "READ", "gpt-oss-120b", id="default"),
+        pytest.param({"SURF_SHUNT_MODEL": "DeepSeek-V4.1-Flash"}, "WRITE", "DeepSeek-V4.1-Flash", id="shared"),
+        pytest.param({"SURF_SHUNT_MODEL": "a", "SURF_SHUNT_READ_MODEL": "b"}, "READ", "b", id="role-override"),
     ],
 )
-def test_load_settings(monkeypatch, env, role, expected_model, expected_base):
-    for name in ["SURF_SHUNT_MODEL", "SURF_SHUNT_READ_MODEL", "SURF_SHUNT_WRITE_MODEL", "SURF_SHUNT_BASE_URL",
-                 "ANTHROPIC_BASE_URL", "SURF_SHUNT_API_KEY", "ANTHROPIC_API_KEY"]:
-        monkeypatch.delenv(name, raising=False)
-    monkeypatch.setenv("ANTHROPIC_AUTH_TOKEN", "token")
-    for name, value in env.items():
-        monkeypatch.setenv(name, value)
-
-    settings = shunt.load_settings(role)
-
-    assert settings.api_key == "token"
-    assert expected_model is None or settings.model == expected_model
-    assert expected_base is None or settings.base_url == expected_base
+def test_load_settings_model(clean_env, env, role, expected_model):
+    clean_env({**PROXY, **env})
+    assert shunt.load_settings(role).model == expected_model
 
 
-def test_load_settings_requires_key(monkeypatch):
-    for name in ["SURF_SHUNT_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY"]:
-        monkeypatch.delenv(name, raising=False)
-    with pytest.raises(shunt.ShuntError, match="no API key"):
+@pytest.mark.parametrize(
+    ("env", "expected"),
+    [
+        pytest.param(PROXY, ("https://proxy", "token"), id="claude-code-proxy"),
+        pytest.param(
+            {"ANTHROPIC_BASE_URL": "https://proxy", "ANTHROPIC_API_KEY": "key"}, ("https://proxy", "key"),
+            id="claude-code-proxy-api-key",
+        ),
+        pytest.param({"SURF_SHUNT_API_KEY": "surf"}, ("https://llms.automation.surf.net", "surf"), id="surf-key"),
+        pytest.param(
+            {**PROXY, "SURF_SHUNT_BASE_URL": "https://surf", "SURF_SHUNT_API_KEY": "surf"}, ("https://surf", "surf"),
+            id="surf-wins",
+        ),
+    ],
+)
+def test_load_settings_endpoint(clean_env, env, expected):
+    clean_env(env)
+    settings = shunt.load_settings("READ")
+    assert (settings.base_url, settings.api_key) == expected
+
+
+@pytest.mark.parametrize(
+    "env",
+    [
+        pytest.param({}, id="nothing"),
+        pytest.param({"ANTHROPIC_API_KEY": "real-anthropic-key"}, id="anthropic-key-without-proxy"),
+        pytest.param({**PROXY, "SURF_SHUNT_BASE_URL": "https://surf"}, id="surf-url-without-surf-key"),
+    ],
+)
+def test_load_settings_never_mixes_hosts_and_keys(clean_env, env):
+    clean_env(env)
+    with pytest.raises(shunt.ShuntError):
         shunt.load_settings("READ")
 
 

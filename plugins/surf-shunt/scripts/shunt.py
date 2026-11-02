@@ -75,12 +75,26 @@ def _first_env(*names: str) -> str:
     return next((os.environ[name] for name in names if os.environ.get(name)), "")
 
 
+def _endpoint() -> tuple[str, str]:
+    """Proxy URL and key, always taken from the same source so a key is never sent to a foreign host."""
+    surf_url, surf_key = os.environ.get("SURF_SHUNT_BASE_URL", ""), os.environ.get("SURF_SHUNT_API_KEY", "")
+    if surf_url or surf_key:
+        if not surf_key:
+            raise ShuntError("SURF_SHUNT_BASE_URL is set without SURF_SHUNT_API_KEY")
+        return surf_url or DEFAULT_BASE_URL, surf_key
+
+    # Reuse Claude Code's own proxy credentials only together with the proxy they belong to
+    anthropic_url = os.environ.get("ANTHROPIC_BASE_URL", "")
+    anthropic_key = _first_env("ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY")
+    if anthropic_url and anthropic_key:
+        return anthropic_url, anthropic_key
+    raise ShuntError("no API key: set SURF_SHUNT_API_KEY (or ANTHROPIC_BASE_URL with ANTHROPIC_AUTH_TOKEN)")
+
+
 def load_settings(role: str) -> Settings:
-    api_key = _first_env("SURF_SHUNT_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY")
-    if not api_key:
-        raise ShuntError("no API key: set SURF_SHUNT_API_KEY (or ANTHROPIC_AUTH_TOKEN)")
+    base_url, api_key = _endpoint()
     return Settings(
-        base_url=_first_env("SURF_SHUNT_BASE_URL", "ANTHROPIC_BASE_URL") or DEFAULT_BASE_URL,
+        base_url=base_url,
         api_key=api_key,
         model=_first_env(f"SURF_SHUNT_{role}_MODEL", "SURF_SHUNT_MODEL") or DEFAULT_MODEL,
         timeout=_env_int("SURF_SHUNT_TIMEOUT", DEFAULT_TIMEOUT),

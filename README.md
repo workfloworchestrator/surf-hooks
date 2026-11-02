@@ -107,15 +107,17 @@ out instead of falling back to a cloud model.
 
 #### Configuration
 
-Set these in the `env` block of `.claude/settings.json`. The proxy URL and key
-default to the `ANTHROPIC_BASE_URL` / `ANTHROPIC_AUTH_TOKEN` Claude Code already uses.
+Set these in the `env` block of `.claude/settings.json`. Without any `SURF_SHUNT_*`
+endpoint settings, it reuses the `ANTHROPIC_BASE_URL` + `ANTHROPIC_AUTH_TOKEN` pair
+Claude Code already uses. A URL and key are never mixed across sources, so an
+Anthropic key is never sent to the SURF proxy or vice versa.
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `SURF_SHUNT_MODEL` | `gpt-oss-120b` | Worker model for both roles |
 | `SURF_SHUNT_READ_MODEL` / `SURF_SHUNT_WRITE_MODEL` | — | Per-role override |
-| `SURF_SHUNT_BASE_URL` | `$ANTHROPIC_BASE_URL` | LiteLLM proxy URL |
-| `SURF_SHUNT_API_KEY` | `$ANTHROPIC_AUTH_TOKEN` | LiteLLM key |
+| `SURF_SHUNT_API_KEY` | `$ANTHROPIC_AUTH_TOKEN` (only with `$ANTHROPIC_BASE_URL`) | LiteLLM key |
+| `SURF_SHUNT_BASE_URL` | `llms.automation.surf.net` when `SURF_SHUNT_API_KEY` is set | LiteLLM proxy URL (requires `SURF_SHUNT_API_KEY`) |
 | `SURF_SHUNT_MIN_LINES` | `350` | Hook threshold |
 | `SURF_SHUNT_DISABLE` | — | `1` turns the hook off (e.g. while the model is down) |
 | `SURF_SHUNT_TIMEOUT` | `300` | Seconds per call |
