@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-surf-shunt: delegate I/O-heavy work to an on-prem model behind the SURF LiteLLM proxy.
+surf-shunt: delegate I/O-heavy work to an on-prem model behind an OpenAI-compatible (LiteLLM) proxy.
 
   shunt.py bulk-read  --question "..." --paths a.py b.py
   shunt.py code-write --spec "..." --reference ref.py [--target out.py] [--force]
@@ -12,8 +12,8 @@ Configuration (environment):
   SURF_SHUNT_MODEL              model for both roles (default: gpt-oss-120b)
   SURF_SHUNT_READ_MODEL         override for bulk-read
   SURF_SHUNT_WRITE_MODEL        override for code-write
-  SURF_SHUNT_BASE_URL           proxy URL (default: $ANTHROPIC_BASE_URL, else llms.automation.surf.net)
-  SURF_SHUNT_API_KEY            proxy key (default: $ANTHROPIC_AUTH_TOKEN, else $ANTHROPIC_API_KEY)
+  SURF_SHUNT_BASE_URL           proxy URL  } set both, or neither to reuse Claude Code's
+  SURF_SHUNT_API_KEY            proxy key  } ANTHROPIC_BASE_URL + ANTHROPIC_AUTH_TOKEN pair
   SURF_SHUNT_TIMEOUT            seconds per call (default: 300)
   SURF_SHUNT_MAX_INPUT_TOKENS   refuse requests estimated above this (default: 100000)
 """
@@ -28,7 +28,6 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
-DEFAULT_BASE_URL = "https://llms.automation.surf.net"
 DEFAULT_MODEL = "gpt-oss-120b"
 DEFAULT_TIMEOUT = 300
 # gpt-oss-120b has a 128k window; leave headroom for the answer
@@ -79,16 +78,19 @@ def _endpoint() -> tuple[str, str]:
     """Proxy URL and key, always taken from the same source so a key is never sent to a foreign host."""
     surf_url, surf_key = os.environ.get("SURF_SHUNT_BASE_URL", ""), os.environ.get("SURF_SHUNT_API_KEY", "")
     if surf_url or surf_key:
-        if not surf_key:
-            raise ShuntError("SURF_SHUNT_BASE_URL is set without SURF_SHUNT_API_KEY")
-        return surf_url or DEFAULT_BASE_URL, surf_key
+        if not (surf_url and surf_key):
+            raise ShuntError("set both SURF_SHUNT_BASE_URL and SURF_SHUNT_API_KEY, or neither")
+        return surf_url, surf_key
 
     # Reuse Claude Code's own proxy credentials only together with the proxy they belong to
     anthropic_url = os.environ.get("ANTHROPIC_BASE_URL", "")
     anthropic_key = _first_env("ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY")
     if anthropic_url and anthropic_key:
         return anthropic_url, anthropic_key
-    raise ShuntError("no API key: set SURF_SHUNT_API_KEY (or ANTHROPIC_BASE_URL with ANTHROPIC_AUTH_TOKEN)")
+    raise ShuntError(
+        "no proxy configured: set SURF_SHUNT_BASE_URL and SURF_SHUNT_API_KEY "
+        "(or ANTHROPIC_BASE_URL with ANTHROPIC_AUTH_TOKEN)"
+    )
 
 
 def load_settings(role: str) -> Settings:

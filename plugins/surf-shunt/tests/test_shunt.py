@@ -100,7 +100,6 @@ def test_load_settings_model(clean_env, env, role, expected_model):
             {"ANTHROPIC_BASE_URL": "https://proxy", "ANTHROPIC_API_KEY": "key"}, ("https://proxy", "key"),
             id="claude-code-proxy-api-key",
         ),
-        pytest.param({"SURF_SHUNT_API_KEY": "surf"}, ("https://llms.automation.surf.net", "surf"), id="surf-key"),
         pytest.param(
             {**PROXY, "SURF_SHUNT_BASE_URL": "https://surf", "SURF_SHUNT_API_KEY": "surf"}, ("https://surf", "surf"),
             id="surf-wins",
@@ -119,6 +118,7 @@ def test_load_settings_endpoint(clean_env, env, expected):
         pytest.param({}, id="nothing"),
         pytest.param({"ANTHROPIC_API_KEY": "real-anthropic-key"}, id="anthropic-key-without-proxy"),
         pytest.param({**PROXY, "SURF_SHUNT_BASE_URL": "https://surf"}, id="surf-url-without-surf-key"),
+        pytest.param({**PROXY, "SURF_SHUNT_API_KEY": "surf"}, id="surf-key-without-surf-url"),
     ],
 )
 def test_load_settings_never_mixes_hosts_and_keys(clean_env, env):
@@ -183,6 +183,7 @@ def test_wrap_files_rejects_missing(tmp_path: Path):
 
 @pytest.fixture
 def configured(monkeypatch):
+    monkeypatch.setenv("SURF_SHUNT_BASE_URL", "https://proxy.example")
     monkeypatch.setenv("SURF_SHUNT_API_KEY", "key")
     monkeypatch.setenv("SURF_SHUNT_MODEL", "gpt-oss-120b")
 

@@ -1,6 +1,6 @@
 ---
 name: code-writer
-description: "Delegate boilerplate code generation to the on-prem model (gpt-oss-120b via llms.automation.surf.net). Use for tests, config, docstrings, type stubs, or any generation where >80% is predictable from reference files."
+description: "Delegate boilerplate code generation to the on-prem model (gpt-oss-120b by default). Use for tests, config, docstrings, type stubs, or any generation where >80% is predictable from reference files."
 ---
 
 ```bash

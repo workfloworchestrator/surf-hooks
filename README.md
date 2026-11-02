@@ -87,7 +87,8 @@ Key topics covered:
 ### `surf-shunt`
 
 Saves Claude tokens by shunting I/O-heavy work to an on-prem model (default
-`gpt-oss-120b`) behind the SURF LiteLLM proxy at `llms.automation.surf.net`.
+`gpt-oss-120b`) behind an OpenAI-compatible LiteLLM proxy. There is no built-in
+proxy URL: point it at your own via the variables below.
 Modelled on Spotify's `shunt` plugin, which does the same via AiKA.
 
 Three layers:
@@ -107,17 +108,17 @@ out instead of falling back to a cloud model.
 
 #### Configuration
 
-Set these in the `env` block of `.claude/settings.json`. Without any `SURF_SHUNT_*`
-endpoint settings, it reuses the `ANTHROPIC_BASE_URL` + `ANTHROPIC_AUTH_TOKEN` pair
-Claude Code already uses. A URL and key are never mixed across sources, so an
-Anthropic key is never sent to the SURF proxy or vice versa.
+Set these in the `env` block of `.claude/settings.json`. Set `SURF_SHUNT_BASE_URL`
+and `SURF_SHUNT_API_KEY` together, or neither to reuse the `ANTHROPIC_BASE_URL` +
+`ANTHROPIC_AUTH_TOKEN` pair Claude Code already uses (when Claude Code itself runs
+through the proxy). A URL and key are never mixed across sources.
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `SURF_SHUNT_MODEL` | `gpt-oss-120b` | Worker model for both roles |
 | `SURF_SHUNT_READ_MODEL` / `SURF_SHUNT_WRITE_MODEL` | — | Per-role override |
-| `SURF_SHUNT_API_KEY` | `$ANTHROPIC_AUTH_TOKEN` (only with `$ANTHROPIC_BASE_URL`) | LiteLLM key |
-| `SURF_SHUNT_BASE_URL` | `llms.automation.surf.net` when `SURF_SHUNT_API_KEY` is set | LiteLLM proxy URL (requires `SURF_SHUNT_API_KEY`) |
+| `SURF_SHUNT_BASE_URL` | `$ANTHROPIC_BASE_URL` | LiteLLM proxy URL |
+| `SURF_SHUNT_API_KEY` | `$ANTHROPIC_AUTH_TOKEN` | LiteLLM key |
 | `SURF_SHUNT_MIN_LINES` | `350` | Hook threshold |
 | `SURF_SHUNT_DISABLE` | — | `1` turns the hook off (e.g. while the model is down) |
 | `SURF_SHUNT_TIMEOUT` | `300` | Seconds per call |

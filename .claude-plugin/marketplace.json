@@ -24,7 +24,7 @@
     {
       "name": "surf-shunt",
       "source": "./plugins/surf-shunt",
-      "description": "Shunts bulk file reading and boilerplate generation to an on-prem model behind llms.automation.surf.net to save tokens",
+      "description": "Shunts bulk file reading and boilerplate generation to an on-prem model behind a LiteLLM proxy to save tokens",
       "version": "0.1.0",
       "license": "MIT"
     }
