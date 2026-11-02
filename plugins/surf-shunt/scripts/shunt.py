@@ -9,13 +9,14 @@ Every call is one-shot: the files go to the worker model, only its answer comes
 back. The answer goes to stdout, a one-line usage note to stderr.
 
 Configuration (environment):
-  SURF_SHUNT_MODEL              model for both roles (default: gpt-oss-120b)
+  SURF_SHUNT_MODEL              model for both roles (default: Qwen3.8-27B-FP8)
   SURF_SHUNT_READ_MODEL         override for bulk-read
   SURF_SHUNT_WRITE_MODEL        override for code-write
   SURF_SHUNT_BASE_URL           proxy URL  } set both, or neither to reuse Claude Code's
   SURF_SHUNT_API_KEY            proxy key  } ANTHROPIC_BASE_URL + ANTHROPIC_AUTH_TOKEN pair
   SURF_SHUNT_TIMEOUT            seconds per call (default: 300)
-  SURF_SHUNT_MAX_INPUT_TOKENS   refuse requests estimated above this (default: 100000)
+  SURF_SHUNT_MAX_INPUT_TOKENS   refuse requests estimated above this
+                                (default: 3/4 of the model's window in MODEL_CONTEXT_TOKENS)
 """
 
 import argparse
@@ -28,10 +29,18 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
-DEFAULT_MODEL = "gpt-oss-120b"
+DEFAULT_MODEL = "Qwen3.8-27B-FP8"
 DEFAULT_TIMEOUT = 300
-# gpt-oss-120b has a 128k window; leave headroom for the answer
-DEFAULT_MAX_INPUT_TOKENS = 100_000
+
+# Context windows (prompt + answer), measured against the SURF proxy on 2026-11-02
+MODEL_CONTEXT_TOKENS = {
+    "gpt-oss-120b": 131_072,
+    "Qwen3.8-27B-FP8": 262_144,
+}
+DEFAULT_CONTEXT_TOKENS = 131_072
+# The answer shares the window and requests are sized with a rough chars/4
+# estimate, so only three quarters of it goes to input
+INPUT_SHARE = 0.75
 
 BULK_READER_PROMPT = (
     "You are a precise code analyst. Read the provided files and answer the question concisely. "
@@ -93,14 +102,19 @@ def _endpoint() -> tuple[str, str]:
     )
 
 
+def default_max_input_tokens(model: str) -> int:
+    return int(MODEL_CONTEXT_TOKENS.get(model, DEFAULT_CONTEXT_TOKENS) * INPUT_SHARE)
+
+
 def load_settings(role: str) -> Settings:
     base_url, api_key = _endpoint()
+    model = _first_env(f"SURF_SHUNT_{role}_MODEL", "SURF_SHUNT_MODEL") or DEFAULT_MODEL
     return Settings(
         base_url=base_url,
         api_key=api_key,
-        model=_first_env(f"SURF_SHUNT_{role}_MODEL", "SURF_SHUNT_MODEL") or DEFAULT_MODEL,
+        model=model,
         timeout=_env_int("SURF_SHUNT_TIMEOUT", DEFAULT_TIMEOUT),
-        max_input_tokens=_env_int("SURF_SHUNT_MAX_INPUT_TOKENS", DEFAULT_MAX_INPUT_TOKENS),
+        max_input_tokens=_env_int("SURF_SHUNT_MAX_INPUT_TOKENS", default_max_input_tokens(model)),
     )
 
 

@@ -87,7 +87,7 @@ Key topics covered:
 ### `surf-shunt`
 
 Saves Claude tokens by shunting I/O-heavy work to an on-prem model (default
-`gpt-oss-120b`) behind an OpenAI-compatible LiteLLM proxy. There is no built-in
+`Qwen3.8-27B-FP8`) behind an OpenAI-compatible LiteLLM proxy. There is no built-in
 proxy URL: point it at your own via the variables below.
 Modelled on Spotify's `shunt` plugin, which does the same via AiKA.
 
@@ -115,14 +115,26 @@ through the proxy). A URL and key are never mixed across sources.
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `SURF_SHUNT_MODEL` | `gpt-oss-120b` | Worker model for both roles |
+| `SURF_SHUNT_MODEL` | `Qwen3.8-27B-FP8` | Worker model for both roles |
 | `SURF_SHUNT_READ_MODEL` / `SURF_SHUNT_WRITE_MODEL` | — | Per-role override |
 | `SURF_SHUNT_BASE_URL` | `$ANTHROPIC_BASE_URL` | LiteLLM proxy URL |
 | `SURF_SHUNT_API_KEY` | `$ANTHROPIC_AUTH_TOKEN` | LiteLLM key |
 | `SURF_SHUNT_MIN_LINES` | `350` | Hook threshold |
 | `SURF_SHUNT_DISABLE` | — | `1` turns the hook off (e.g. while the model is down) |
 | `SURF_SHUNT_TIMEOUT` | `300` | Seconds per call |
-| `SURF_SHUNT_MAX_INPUT_TOKENS` | `100000` | Refuse larger requests (gpt-oss-120b has a 128k window) |
+| `SURF_SHUNT_MAX_INPUT_TOKENS` | ¾ of the model's window | Refuse larger requests (see below) |
+
+The input limit follows the selected model, from the context windows in
+`MODEL_CONTEXT_TOKENS` in `scripts/shunt.py` (measured against the proxy):
+
+| Model | Context window | Default input limit |
+|-------|----------------|---------------------|
+| `Qwen3.8-27B-FP8` | 262,144 | 196,608 |
+| `gpt-oss-120b` | 131,072 | 98,304 |
+| anything else | 131,072 (assumed) | 98,304 |
+
+Three quarters of the window goes to input: the answer shares the window, and
+request size is estimated at four characters per token, which undercounts code.
 
 Run its tests with `python3 -m pytest plugins/surf-shunt`.
 

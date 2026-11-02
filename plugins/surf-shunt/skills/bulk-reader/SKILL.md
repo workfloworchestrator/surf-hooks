@@ -1,6 +1,6 @@
 ---
 name: bulk-reader
-description: "Delegate bulk file reading to the on-prem model (gpt-oss-120b by default). Use when you need to read files >350 lines, answer questions across 3+ files, or summarize large diffs. Not for debugging or for code you are about to edit."
+description: "Delegate bulk file reading to the on-prem model (Qwen3.8-27B-FP8 by default). Use when you need to read files >350 lines, answer questions across 3+ files, or summarize large diffs. Not for debugging or for code you are about to edit."
 ---
 
 ```bash

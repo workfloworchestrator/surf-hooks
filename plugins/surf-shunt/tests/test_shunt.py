@@ -82,7 +82,7 @@ PROXY = {"ANTHROPIC_BASE_URL": "https://proxy", "ANTHROPIC_AUTH_TOKEN": "token"}
 @pytest.mark.parametrize(
     ("env", "role", "expected_model"),
     [
-        pytest.param({}, "READ", "gpt-oss-120b", id="default"),
+        pytest.param({}, "READ", "Qwen3.8-27B-FP8", id="default"),
         pytest.param({"SURF_SHUNT_MODEL": "DeepSeek-V4.1-Flash"}, "WRITE", "DeepSeek-V4.1-Flash", id="shared"),
         pytest.param({"SURF_SHUNT_MODEL": "a", "SURF_SHUNT_READ_MODEL": "b"}, "READ", "b", id="role-override"),
     ],
@@ -90,6 +90,27 @@ PROXY = {"ANTHROPIC_BASE_URL": "https://proxy", "ANTHROPIC_AUTH_TOKEN": "token"}
 def test_load_settings_model(clean_env, env, role, expected_model):
     clean_env({**PROXY, **env})
     assert shunt.load_settings(role).model == expected_model
+
+
+@pytest.mark.parametrize(
+    ("env", "role", "expected_limit"),
+    [
+        pytest.param({}, "READ", 196_608, id="default-model-qwen"),
+        pytest.param({"SURF_SHUNT_MODEL": "gpt-oss-120b"}, "READ", 98_304, id="gpt-oss"),
+        pytest.param({"SURF_SHUNT_MODEL": "unknown-model"}, "READ", 98_304, id="unlisted-model"),
+        pytest.param(
+            {"SURF_SHUNT_MODEL": "Qwen3.8-27B-FP8", "SURF_SHUNT_WRITE_MODEL": "gpt-oss-120b"}, "WRITE", 98_304,
+            id="follows-role-model",
+        ),
+        pytest.param(
+            {"SURF_SHUNT_MODEL": "gpt-oss-120b", "SURF_SHUNT_MAX_INPUT_TOKENS": "5000"}, "READ", 5000,
+            id="env-override",
+        ),
+    ],
+)
+def test_load_settings_max_input_tokens(clean_env, env, role, expected_limit):
+    clean_env({**PROXY, **env})
+    assert shunt.load_settings(role).max_input_tokens == expected_limit
 
 
 @pytest.mark.parametrize(
