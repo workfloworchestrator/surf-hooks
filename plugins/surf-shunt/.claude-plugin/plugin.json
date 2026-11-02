@@ -1,0 +1,7 @@
+{
+  "name": "surf-shunt",
+  "version": "0.1.0",
+  "description": "Shunts bulk file reading and boilerplate generation to an on-prem model behind the SURF LiteLLM proxy to save tokens",
+  "author": { "name": "SURF Network Automation" },
+  "license": "MIT"
+}

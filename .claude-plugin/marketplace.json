@@ -20,6 +20,13 @@
       "description": "Skills for developing with orchestrator-core: CLI scaffolding, workflow creation, domain models, and product lifecycle",
       "version": "1.0.1",
       "license": "Apache-2.0"
+    },
+    {
+      "name": "surf-shunt",
+      "source": "./plugins/surf-shunt",
+      "description": "Shunts bulk file reading and boilerplate generation to an on-prem model behind llms.automation.surf.net to save tokens",
+      "version": "0.1.0",
+      "license": "MIT"
     }
   ]
 }

@@ -83,6 +83,47 @@ Key topics covered:
 - Custom Jinja2 templates for extending generated workflow scaffolding
 
 ---
+
+### `surf-shunt`
+
+Saves Claude tokens by shunting I/O-heavy work to an on-prem model (default
+`gpt-oss-120b`) behind the SURF LiteLLM proxy at `llms.automation.surf.net`.
+Modelled on Spotify's `shunt` plugin, which does the same via AiKA.
+
+Three layers:
+
+1. **Hook** (`PreToolUse` on `Read|Bash`) blocks full reads of files over 350 lines
+   (`Read` without offset/limit, `cat`/`less`/`more`/`bat`) and tells Claude the exact
+   `bulk-read` command to run instead. Targeted reads (offset/limit, `head`, `tail`,
+   `sed -n`, piped or redirected output) pass through.
+2. **Script** `scripts/shunt.py` (stdlib only) sends the files to the model and prints only the answer:
+   - `bulk-read --question "..." --paths a.py b.py` — the files never enter Claude's context
+   - `code-write --spec "..." --reference ref.py --target out.py` — generates boilerplate straight to disk
+3. **Skills** `bulk-reader` and `code-writer` tell Claude when to use each.
+
+Content is meant to stay on-prem: requests set `disable_fallbacks`, and an answer
+from any model other than the one requested is discarded. A failed call errors
+out instead of falling back to a cloud model.
+
+#### Configuration
+
+Set these in the `env` block of `.claude/settings.json`. The proxy URL and key
+default to the `ANTHROPIC_BASE_URL` / `ANTHROPIC_AUTH_TOKEN` Claude Code already uses.
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `SURF_SHUNT_MODEL` | `gpt-oss-120b` | Worker model for both roles |
+| `SURF_SHUNT_READ_MODEL` / `SURF_SHUNT_WRITE_MODEL` | — | Per-role override |
+| `SURF_SHUNT_BASE_URL` | `$ANTHROPIC_BASE_URL` | LiteLLM proxy URL |
+| `SURF_SHUNT_API_KEY` | `$ANTHROPIC_AUTH_TOKEN` | LiteLLM key |
+| `SURF_SHUNT_MIN_LINES` | `350` | Hook threshold |
+| `SURF_SHUNT_DISABLE` | — | `1` turns the hook off (e.g. while the model is down) |
+| `SURF_SHUNT_TIMEOUT` | `300` | Seconds per call |
+| `SURF_SHUNT_MAX_INPUT_TOKENS` | `100000` | Refuse larger requests (gpt-oss-120b has a 128k window) |
+
+Run its tests with `python3 -m pytest plugins/surf-shunt`.
+
+---
 Installation
 
 Add the marketplace
@@ -93,6 +134,7 @@ Install a plugin
 
 /plugin install surf-python-style@surf-hooks
 /plugin install orchestrator-skills@surf-hooks
+/plugin install surf-shunt@surf-hooks
 
 ---
 Local development
