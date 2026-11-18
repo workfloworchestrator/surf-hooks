@@ -1,0 +1,18 @@
+{
+  "name": "surf-hooks",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "SURF hooks and plugins for Claude Code and OpenCode (see README.md)",
+  "dependencies": {
+    "@opencode/plugin": "^2.3.2"
+  },
+  "scripts": {
+    "test:plugins": "node --experimental-strip-types --test .opencode/lib/hooks.test.ts",
+    "test:shunt": "python3 -m pytest plugins/surf-shunt"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2"
+  }
+}

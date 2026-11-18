@@ -62,6 +62,7 @@ def test_strip_fences(raw: str, expected: str):
 ENV_NAMES = [
     "SURF_SHUNT_MODEL", "SURF_SHUNT_READ_MODEL", "SURF_SHUNT_WRITE_MODEL", "SURF_SHUNT_BASE_URL",
     "SURF_SHUNT_API_KEY", "SURF_SHUNT_THINKING", "ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY",
+    "LITELLM_PROXY_URL", "LITELLM_BASE_URL", "LITELLM_API_KEY", "LITELLM_API_KEY_OPENCODE",
 ]
 
 
@@ -161,6 +162,21 @@ def test_chat_disables_thinking_by_default(fake_proxy):
             {**PROXY, "SURF_SHUNT_BASE_URL": "https://surf", "SURF_SHUNT_API_KEY": "surf"}, ("https://surf", "surf"),
             id="surf-wins",
         ),
+        pytest.param(
+            {"LITELLM_PROXY_URL": "https://llms.example", "LITELLM_API_KEY": "litellm-key"},
+            ("https://llms.example", "litellm-key"),
+            id="opencode-litellm-proxy-url",
+        ),
+        pytest.param(
+            {"LITELLM_BASE_URL": "https://llms.example", "LITELLM_API_KEY_OPENCODE": "k2"},
+            ("https://llms.example", "k2"),
+            id="opencode-litellm-base-url-and-alt-key",
+        ),
+        pytest.param(
+            {**PROXY, "LITELLM_PROXY_URL": "https://llms.example", "LITELLM_API_KEY": "litellm-key"},
+            ("https://proxy", "token"),
+            id="anthropic-pair-wins-over-litellm",
+        ),
     ],
 )
 def test_load_settings_endpoint(clean_env, env, expected):
@@ -170,12 +186,43 @@ def test_load_settings_endpoint(clean_env, env, expected):
 
 
 @pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        pytest.param("https://proxy", "https://proxy", id="plain"),
+        pytest.param("https://proxy/", "https://proxy", id="trailing-slash"),
+        pytest.param("https://proxy/v1", "https://proxy", id="trailing-v1-stripped"),
+        pytest.param("https://proxy/v1/", "https://proxy", id="trailing-v1-slash-stripped"),
+        pytest.param("https://proxy/api/v1", "https://proxy/api", id="only-final-v1-stripped"),
+    ],
+)
+def test_normalize_base_url(url, expected):
+    assert shunt._normalize_base_url(url) == expected
+
+
+def test_chat_endpoint_url(fake_proxy, monkeypatch):
+    urls = []
+
+    def install(response=None, error=None):
+        def urlopen(request, timeout):
+            urls.append(request.full_url)
+            return response
+
+        monkeypatch.setattr(shunt.urllib.request, "urlopen", urlopen)
+
+    install(FakeResponse(answer("- ok")))
+    shunt.chat(dataclasses.replace(SETTINGS, base_url="https://proxy.example/v1/"), "system", "user")
+    assert urls == ["https://proxy.example/v1/chat/completions"]
+
+
+@pytest.mark.parametrize(
     "env",
     [
         pytest.param({}, id="nothing"),
         pytest.param({"ANTHROPIC_API_KEY": "real-anthropic-key"}, id="anthropic-key-without-proxy"),
         pytest.param({**PROXY, "SURF_SHUNT_BASE_URL": "https://surf"}, id="surf-url-without-surf-key"),
         pytest.param({**PROXY, "SURF_SHUNT_API_KEY": "surf"}, id="surf-key-without-surf-url"),
+        pytest.param({"LITELLM_PROXY_URL": "https://llms.example"}, id="litellm-url-without-key"),
+        pytest.param({"LITELLM_API_KEY": "k"}, id="litellm-key-without-url"),
     ],
 )
 def test_load_settings_never_mixes_hosts_and_keys(clean_env, env):

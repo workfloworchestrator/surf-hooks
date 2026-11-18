@@ -181,6 +181,63 @@ backend errors, so measure the window by sending `"hello " * n` prompts of growi
 Run its tests with `python3 -m pytest plugins/surf-shunt`.
 
 ---
+
+## OpenCode
+
+The same repo also works as an OpenCode project setup. The `.opencode/` directory
+contains native OpenCode V2 plugins that **reuse the exact same Python hook
+scripts** as the Claude Code plugins above — no duplicated logic:
+
+- `.opencode/plugins/surf-python-style.ts` — runs `python_style_hook.py`,
+  `test_param_hook.py`, and `base_exception_hook.py` via `ctx.tool.hook`
+  (`execute.before`/`execute.after` on `edit`/`write`/`patch`), and
+  `python_style_primer.py` via `ctx.session.hook("prompt")`.
+- `.opencode/plugins/surf-shunt.ts` — runs `large_read_hook.py` via
+  `ctx.tool.hook("execute.before")` on `read`/`shell` (blocks large reads,
+  exit code 2 → thrown error).
+- `.opencode/opencode.json` — registers the **existing** skill directories
+  (`plugins/surf-shunt/skills`, `plugins/orchestrator-skills/skills`) under
+  OpenCode's `skills` config and mirrors the shell permissions from
+  `.claude/settings.local.json`.
+
+OpenCode auto-discovers the plugin files directly under `.opencode/plugins/`
+and `.opencode/opencode.json` when you start it in this directory — no install
+step. (The shared helpers live in `.opencode/lib/` and are only imported by the
+plugins, so they are not loaded as plugins themselves.) To use the plugins in
+other projects, add them to that project's `opencode.json`:
+
+```jsonc
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugins": ["/path/to/surf-hooks/.opencode/plugins"],
+  "skills": [
+    "/path/to/surf-hooks/plugins/surf-shunt/skills",
+    "/path/to/surf-hooks/plugins/orchestrator-skills/skills"
+  ]
+}
+```
+
+(The `bulk-reader` and `code-writer` SKILL.md files use paths relative to the
+SKILL.md itself, so they work unchanged in both harnesses.)
+
+### Shunt proxy credentials under OpenCode
+
+`shunt.py` picks the proxy from the first complete pair it finds:
+`SURF_SHUNT_BASE_URL` + `SURF_SHUNT_API_KEY`, else `ANTHROPIC_BASE_URL` +
+`ANTHROPIC_AUTH_TOKEN`/`ANTHROPIC_API_KEY` (Claude Code), else
+`LITELLM_PROXY_URL` (or `LITELLM_BASE_URL`) + `LITELLM_API_KEY` (or
+`LITELLM_API_KEY_OPENCODE`) — the variables the `litellm` provider in
+`~/.config/opencode/opencode.json` already uses. A trailing `/v1` on the base
+URL is accepted and normalized. A URL and key are never mixed across sources.
+
+Test the OpenCode plugin helpers with:
+
+```sh
+npm install        # once, for the @opencode/plugin types
+npm run test:plugins
+```
+
+---
 Installation
 
 Add the marketplace

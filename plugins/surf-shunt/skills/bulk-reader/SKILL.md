@@ -4,7 +4,10 @@ description: "Delegate bulk file reading to the on-prem model (gpt-oss-120b by d
 ---
 
 ```bash
-${CLAUDE_PLUGIN_ROOT}/scripts/run-python ${CLAUDE_PLUGIN_ROOT}/scripts/shunt.py bulk-read --question "<question>" --paths <file1> [<file2> ...]
+# Paths are relative to this SKILL.md (plugins/surf-shunt/skills/bulk-reader/),
+# so the same command works under Claude Code (${CLAUDE_PLUGIN_ROOT} = plugins/surf-shunt)
+# and OpenCode (skill paths are relative to the SKILL.md directory).
+../../../scripts/run-python ../../../scripts/shunt.py bulk-read --question "<question>" --paths <file1> [<file2> ...]
 ```
 
 The files go to the on-prem model, never into your context — only the answer comes back.

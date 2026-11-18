@@ -4,11 +4,15 @@ description: "Delegate boilerplate code generation to the on-prem model (gpt-oss
 ---
 
 ```bash
+# Paths are relative to this SKILL.md (plugins/surf-shunt/skills/code-writer/),
+# so the same commands work under Claude Code (${CLAUDE_PLUGIN_ROOT} = plugins/surf-shunt)
+# and OpenCode (skill paths are relative to the SKILL.md directory).
+
 # Generate and write directly to the target file
-${CLAUDE_PLUGIN_ROOT}/scripts/run-python ${CLAUDE_PLUGIN_ROOT}/scripts/shunt.py code-write --spec "<what to generate>" --reference <ref-file> [<ref-file> ...] --target <output-path>
+../../../scripts/run-python ../../../scripts/shunt.py code-write --spec "<what to generate>" --reference <ref-file> [<ref-file> ...] --target <output-path>
 
 # Print to stdout instead (omit --target)
-${CLAUDE_PLUGIN_ROOT}/scripts/run-python ${CLAUDE_PLUGIN_ROOT}/scripts/shunt.py code-write --spec "<what to generate>" --reference <ref-file>
+../../../scripts/run-python ../../../scripts/shunt.py code-write --spec "<what to generate>" --reference <ref-file>
 ```
 
 - `--reference` is required: pass the file(s) whose patterns the output must follow, plus the code under test when generating tests.
