@@ -15,7 +15,7 @@
  */
 
 import { Plugin } from "@opencode/plugin"
-import { isEditTool, parseHookStdout, patchEvents, runHookScript, toClaudeEvent, appendResultText, withResultText, type HookScriptResult } from "../lib/hooks.ts"
+import { isEditTool, parseHookStdout, patchEvents, runHookScript, toClaudeEvent, appendResultText, withResultText, type HookScriptResult } from "../../lib/hooks.ts"
 
 const SCRIPTS = "plugins/surf-python-style/hooks/scripts"
 const STYLE_HOOK = `${SCRIPTS}/python_style_hook.py`

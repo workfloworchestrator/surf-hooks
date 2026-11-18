@@ -200,22 +200,28 @@ scripts** as the Claude Code plugins above — no duplicated logic:
   OpenCode's `skills` config and mirrors the shell permissions from
   `.claude/settings.local.json`.
 
-OpenCode auto-discovers the plugin files directly under `.opencode/plugins/`
-and `.opencode/opencode.json` when you start it in this directory — no install
-step. (The shared helpers live in `.opencode/lib/` and are only imported by the
-plugins, so they are not loaded as plugins themselves.) To use the plugins in
-other projects, add them to that project's `opencode.json`:
+OpenCode auto-discovers each plugin directory under `.opencode/plugins/`
+(plus `.opencode/opencode.json`) when you start it in this directory — no
+install step. (The shared helpers live in `.opencode/lib/` and are only
+imported by the plugins, so they are not loaded as plugins themselves.) To use
+the hooks and skills in **every** project, add them once to the global
+`~/.config/opencode/opencode.json`:
 
 ```jsonc
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugins": ["/path/to/surf-hooks/.opencode/plugins"],
+  "plugins": [
+    "/path/to/surf-hooks/.opencode/plugins/surf-python-style",
+    "/path/to/surf-hooks/.opencode/plugins/surf-shunt"
+  ],
   "skills": [
     "/path/to/surf-hooks/plugins/surf-shunt/skills",
     "/path/to/surf-hooks/plugins/orchestrator-skills/skills"
   ]
 }
 ```
+
+Config changes apply without a restart; use `/reload` in the TUI to force it.
 
 (The `bulk-reader` and `code-writer` SKILL.md files use paths relative to the
 SKILL.md itself, so they work unchanged in both harnesses.)

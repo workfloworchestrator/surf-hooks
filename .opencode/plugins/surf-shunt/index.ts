@@ -9,7 +9,7 @@
  */
 
 import { Plugin } from "@opencode/plugin"
-import { isReadTool, runHookScript, toClaudeEvent } from "../lib/hooks.ts"
+import { isReadTool, runHookScript, toClaudeEvent } from "../../lib/hooks.ts"
 
 const LARGE_READ_HOOK = "plugins/surf-shunt/hooks/scripts/large_read_hook.py"
 
