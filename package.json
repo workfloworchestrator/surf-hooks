@@ -1,9 +1,26 @@
 {
   "name": "surf-hooks",
-  "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
+  "description": "SURF hooks and plugins for Claude Code and OpenCode: Python style enforcement and large-read shunting via shared Python hook scripts",
   "type": "module",
-  "description": "SURF hooks and plugins for Claude Code and OpenCode (see README.md)",
+  "main": ".opencode/plugins/surf-hooks.ts",
+  "exports": {
+    ".": "./.opencode/plugins/surf-hooks.ts"
+  },
+  "files": [
+    ".opencode/plugins",
+    ".opencode/lib",
+    "plugins"
+  ],
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "claude-code",
+    "hooks",
+    "python",
+    "style"
+  ],
+  "license": "MIT",
   "dependencies": {
     "@opencode/plugin": "^2.3.2"
   },

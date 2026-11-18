@@ -1,9 +1,9 @@
 /**
- * OpenCode V2 plugin: surf-python-style
+ * OpenCode V2 plugin: surf-hooks
  *
- * Runs the existing Claude Code Python style hook scripts
- * (plugins/surf-python-style/hooks/scripts/*.py) as OpenCode tool/session
- * hooks, so both harnesses enforce exactly the same rules:
+ * One plugin that runs the existing Claude Code hook scripts
+ * (the .py files under plugins/…/hooks/scripts/) as OpenCode tool/session hooks, so both
+ * harnesses enforce exactly the same rules with zero duplicated logic:
  *
  *   - execute.before on edit/write/patch  → base_exception_hook.py (hard block
  *     by throwing, the V2 equivalent of exit code 2)
@@ -12,36 +12,61 @@
  *     >= 3 nesting hard-block rewrites the result to the BLOCKED message)
  *   - session "prompt" hook               → python_style_primer.py (appends the
  *     style primer to Python-related user prompts)
+ *   - execute.before on read/shell        → large_read_hook.py (blocks full
+ *     reads of files over the line threshold and points at the bulk-reader
+ *     skill; exit code 2 → thrown error)
+ *
+ * Load it from git in any project's opencode.json:
+ *   "plugins": ["github:workfloworchestrator/surf-hooks#main"]
  */
 
 import { Plugin } from "@opencode/plugin"
-import { isEditTool, parseHookStdout, patchEvents, runHookScript, toClaudeEvent, appendResultText, withResultText, type HookScriptResult } from "../../lib/hooks.ts"
+import {
+  appendResultText,
+  isEditTool,
+  isReadTool,
+  parseHookStdout,
+  patchEvents,
+  runHookScript,
+  toClaudeEvent,
+  withResultText,
+  type HookScriptResult,
+} from "../lib/hooks.ts"
 
-const SCRIPTS = "plugins/surf-python-style/hooks/scripts"
-const STYLE_HOOK = `${SCRIPTS}/python_style_hook.py`
-const PARAM_HOOK = `${SCRIPTS}/test_param_hook.py`
-const BASE_EXCEPTION_HOOK = `${SCRIPTS}/base_exception_hook.py`
-const PRIMER_HOOK = `${SCRIPTS}/python_style_primer.py`
+const STYLE_SCRIPTS = "plugins/surf-python-style/hooks/scripts"
+const STYLE_HOOK = `${STYLE_SCRIPTS}/python_style_hook.py`
+const PARAM_HOOK = `${STYLE_SCRIPTS}/test_param_hook.py`
+const BASE_EXCEPTION_HOOK = `${STYLE_SCRIPTS}/base_exception_hook.py`
+const PRIMER_HOOK = `${STYLE_SCRIPTS}/python_style_primer.py`
+const LARGE_READ_HOOK = "plugins/surf-shunt/hooks/scripts/large_read_hook.py"
 
 /** Working directory for hook scripts: the session's own directory when known. */
-async function sessionCwd(ctx: { location: { directory: string }; session: { get(input: { sessionID: string }): Promise<unknown> } }, sessionID: string): Promise<string> {
+async function sessionCwd(
+  ctx: { location: { directory: string }; session: { get(input: { sessionID: string }): Promise<unknown> } },
+  sessionID: string,
+): Promise<string> {
   // cwd is only passed to the Python scripts as a plain string
   try {
-    const session = await ctx.session.get({ sessionID }) as { location?: { directory?: string } }
+    const session = (await ctx.session.get({ sessionID })) as { location?: { directory?: string } }
     return session.location?.directory ?? ctx.location.directory
   } catch {
     return ctx.location.directory
   }
 }
 
-/** Run one style script for one Claude event; never throws. */
-function check(script: string, event: { tool_name: string; tool_input: Record<string, unknown>; cwd: string }): Promise<HookScriptResult> {
+/** Run one hook script for one Claude event; never throws. */
+function check(
+  script: string,
+  event: { tool_name: string; tool_input: Record<string, unknown>; cwd: string },
+): Promise<HookScriptResult> {
   return runHookScript(script, event, event.cwd)
 }
 
 export default Plugin.define({
-  id: "surf-python-style",
+  id: "surf-hooks",
   async setup(ctx) {
+    // ── surf-python-style ──────────────────────────────────────────────────
+
     // Hard block: BaseException in new Python code fails the tool call outright
     // (V2 execute.before can throw; Claude Code used exit code 2 in PostToolUse).
     await ctx.tool.hook("execute.before", async (event) => {
@@ -87,6 +112,33 @@ export default Plugin.define({
         if (typeof context === "string") event.prompt.text = `${event.prompt.text}\n\n${context}`
       } catch {
         // not JSON: nothing to inject
+      }
+    })
+
+    // ── surf-shunt ─────────────────────────────────────────────────────────
+
+    await ctx.tool.hook("execute.before", async (event) => {
+      if (!isReadTool(event.tool) || isEditTool(event.tool)) return
+      const cwd = await sessionCwd(ctx, event.sessionID)
+      const claudeEvent = toClaudeEvent(event.tool, event.input, cwd)
+      if (!claudeEvent) return
+      const result = await runHookScript(LARGE_READ_HOOK, claudeEvent, cwd)
+      if (result.code === 2) {
+        // PreToolUse exit code 2 = block the tool call; in V2 that is a thrown
+        // error, whose message is shown to the model.
+        throw new Error(result.stderr.trim() || "BLOCKED by surf-shunt")
+      }
+      // run-python --fail-open emits {"systemMessage": ...} on stdout when no
+      // suitable Python exists; the hook then fails open (call goes through),
+      // so just surface the warning in the server log.
+      const stdout = result.stdout.trim()
+      if (stdout) {
+        try {
+          const parsed = JSON.parse(stdout)
+          if (typeof parsed?.systemMessage === "string") console.warn(`[surf-shunt] ${parsed.systemMessage}`)
+        } catch {
+          // not JSON: ignore
+        }
       }
     })
   },

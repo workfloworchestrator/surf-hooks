@@ -14,7 +14,11 @@ import { spawn } from "node:child_process"
 import { fileURLToPath } from "node:url"
 import path from "node:path"
 
-/** Absolute path of this repository (the directory containing .opencode/). */
+/**
+ * Absolute path of this repository (the directory containing .opencode/).
+ * Works both for a local checkout and for a git-installed package, because
+ * OpenCode clones the whole repo and runs the entrypoint in place.
+ */
 export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..")
 
 export interface HookScriptResult {
