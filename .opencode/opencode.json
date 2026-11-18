@@ -1,0 +1,11 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "skills": [
+    "./plugins/surf-shunt/skills",
+    "./plugins/orchestrator-skills/skills"
+  ],
+  "permissions": [
+    { "action": "shell", "resource": "pytest *", "effect": "allow" },
+    { "action": "shell", "resource": "python3 *", "effect": "allow" }
+  ]
+}

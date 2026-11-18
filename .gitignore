@@ -38,3 +38,7 @@ htmlcov/
 
 # Logs
 *.log
+
+# OpenCode plugin tooling (local .ts plugins type-check against this package)
+node_modules/
+package-lock.json

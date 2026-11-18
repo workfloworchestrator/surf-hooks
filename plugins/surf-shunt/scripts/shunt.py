@@ -12,8 +12,8 @@ Configuration (environment):
   SURF_SHUNT_MODEL              model for both roles (default: gpt-oss-120b)
   SURF_SHUNT_READ_MODEL         override for bulk-read
   SURF_SHUNT_WRITE_MODEL        override for code-write
-  SURF_SHUNT_BASE_URL           proxy URL  } set both, or neither to reuse Claude Code's
-  SURF_SHUNT_API_KEY            proxy key  } ANTHROPIC_BASE_URL + ANTHROPIC_AUTH_TOKEN pair
+  SURF_SHUNT_BASE_URL           proxy URL  } set both, or neither to reuse the harness's
+  SURF_SHUNT_API_KEY            proxy key  } ANTHROPIC_* pair (Claude Code) or LITELLM_* pair (OpenCode)
   SURF_SHUNT_TIMEOUT            seconds per call (default: 300)
   SURF_SHUNT_THINKING           on | off: the chat-template enable_thinking flag (default: off)
   SURF_SHUNT_MAX_INPUT_TOKENS   refuse requests estimated above this
@@ -107,22 +107,37 @@ def _first_env(*names: str) -> str:
     return next((os.environ[name] for name in names if os.environ.get(name)), "")
 
 
+def _normalize_base_url(url: str) -> str:
+    """The chat endpoint is <base>/v1/chat/completions; strip a trailing /v1 so both
+    `https://proxy` and `https://proxy/v1` (as OpenCode providers configure it) work."""
+    return url.rstrip("/").removesuffix("/v1")
+
+
 def _endpoint() -> tuple[str, str]:
     """Proxy URL and key, always taken from the same source so a key is never sent to a foreign host."""
     surf_url, surf_key = os.environ.get("SURF_SHUNT_BASE_URL", ""), os.environ.get("SURF_SHUNT_API_KEY", "")
     if surf_url or surf_key:
         if not (surf_url and surf_key):
             raise ShuntError("set both SURF_SHUNT_BASE_URL and SURF_SHUNT_API_KEY, or neither")
-        return surf_url, surf_key
+        return _normalize_base_url(surf_url), surf_key
 
-    # Reuse Claude Code's own proxy credentials only together with the proxy they belong to
+    # Reuse the harness's own proxy credentials only together with the proxy they belong to.
+    # Claude Code: ANTHROPIC_BASE_URL + ANTHROPIC_AUTH_TOKEN/ANTHROPIC_API_KEY.
     anthropic_url = os.environ.get("ANTHROPIC_BASE_URL", "")
     anthropic_key = _first_env("ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY")
     if anthropic_url and anthropic_key:
-        return anthropic_url, anthropic_key
+        return _normalize_base_url(anthropic_url), anthropic_key
+
+    # OpenCode: the litellm provider configured in opencode.json reads these.
+    litellm_url = _first_env("LITELLM_PROXY_URL", "LITELLM_BASE_URL")
+    litellm_key = _first_env("LITELLM_API_KEY", "LITELLM_API_KEY_OPENCODE")
+    if litellm_url and litellm_key:
+        return _normalize_base_url(litellm_url), litellm_key
+
     raise ShuntError(
-        "no proxy configured: set SURF_SHUNT_BASE_URL and SURF_SHUNT_API_KEY "
-        "(or ANTHROPIC_BASE_URL with ANTHROPIC_AUTH_TOKEN)"
+        "no proxy configured: set SURF_SHUNT_BASE_URL and SURF_SHUNT_API_KEY, "
+        "or ANTHROPIC_BASE_URL with ANTHROPIC_AUTH_TOKEN (Claude Code), "
+        "or LITELLM_PROXY_URL with LITELLM_API_KEY (OpenCode)"
     )
 
 
@@ -183,7 +198,7 @@ def chat(settings: Settings, system: str, user: str) -> str:
         "chat_template_kwargs": {"enable_thinking": settings.thinking},
     }
     request = urllib.request.Request(
-        f"{settings.base_url.rstrip('/')}/v1/chat/completions",
+        f"{_normalize_base_url(settings.base_url)}/v1/chat/completions",
         data=json.dumps(body).encode(),
         headers={"Authorization": f"Bearer {settings.api_key}", "Content-Type": "application/json"},
         method="POST",
